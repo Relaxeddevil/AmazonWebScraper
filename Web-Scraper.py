@@ -4,19 +4,21 @@ import time
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
-options = webdriver.ChromeOptions()
-options.add_argument("--headless")
-# options.add_argument("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-#                     "Chrome/92.0.4515.131 ""Safari/537.36")
+terms = input("What would you like to search Amazon.ca for? ")
 
 
-driver = webdriver.Chrome(options=options)
-
-keyword = input("What would you like to search Amazon.ca for? ")
+def clean_input(unclean):
+    clean = unclean.replace(' ', '').split(",")
+    return clean
 
 
 def get_soup(search_term):
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    # options.add_argument("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    #                     "Chrome/92.0.4515.131 ""Safari/537.36")
+
+    driver = webdriver.Chrome(options=options)
     url = 'https://www.amazon.ca/'
     driver.get(url)
     driver.maximize_window()
@@ -36,53 +38,67 @@ def get_soup(search_term):
 
     html = driver.page_source
 
+    driver.quit()
+
     soup = BeautifulSoup(html, 'lxml')
 
     return soup
 
 
-def get_data():
+def get_data(keywords):
     names_list = []
     prices_list = []
+    search_list = []
 
-    soup = get_soup(keyword)
+    for keyword in keywords:
+        temp_names = []
+        temp_prices = []
+        temp_search = []
 
-    names = soup.find_all("span", {'class': 'a-size-base-plus a-color-base a-text-normal'})
-    for name in names:
-        names_list.append(name.text)
+        soup = get_soup(keyword)
 
-    prices = soup.find_all("span", {'class': 'a-price-whole'})
-    for price in prices:
-        price_clean = price.text[:-1].replace(',', '')
-        prices_list.append(int(price_clean))
+        names = soup.find_all("span", {'class': 'a-size-base-plus a-color-base a-text-normal'})
+        for name in names:
+            temp_names.append(name.text)
 
-    return names_list[:len(prices_list)], prices_list
+        prices = soup.find_all("span", {'class': 'a-price-whole'})
+        for price in prices:
+            price_clean = price.text[:-1].replace(',', '')
+            temp_prices.append(int(price_clean))
+
+        for i in range(len(temp_prices)):
+            temp_search.append(keyword)
+
+        names_list.extend(temp_names[:len(temp_prices)])
+        prices_list.extend(temp_prices)
+        search_list.extend(temp_search)
+
+    return names_list, prices_list, search_list
 
 
 def create_dataframe():
-    names, prices = get_data()
+    names, prices, search_terms = get_data(clean_input(terms))
 
-    dictionary = {'Name': names, 'Price ($)': prices}
+    dictionary = {'Name': names, 'Price ($)': prices, 'Search Term': search_terms}
 
     df = pd.DataFrame(dictionary)
-    df['Search Term'] = keyword
 
     return df
 
 
-def create_bp():
-    bp = df.boxplot(by=['Search Term'], column=['Price ($)'], grid=False, showmeans=True)
-    bp.set_title("Boxplot of '" + str(keyword) + "' Price")
-    bp.set_xlabel("")
+def create_bp(dataframe):
+    bp = dataframe.boxplot(by=['Search Term'], column=['Price ($)'], grid=False, showmeans=True)
+    bp.set_title("")
+    # bp.set_xlabel("")
     bp.set_ylabel("Price ($)")
 
-    plt.suptitle('')
+    # plt.suptitle('')
     plt.savefig('boxplot.png')
 
 
-def save_to_excel():
+def save_to_excel(dataframe):
     writer = pd.ExcelWriter('Amazon Web-Scraper.xlsx')
-    df.to_excel(writer, sheet_name='Data', index=False)
+    dataframe.to_excel(writer, sheet_name='Data', index=False)
 
     bpsheet = writer.sheets['Data']
     bpsheet.insert_image('E2', 'boxplot.png')
@@ -93,5 +109,6 @@ def save_to_excel():
 
 if __name__ == '__main__':
     df = create_dataframe()
-    create_bp()
-    save_to_excel()
+    create_bp(df)
+    save_to_excel(df)
+
