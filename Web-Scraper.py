@@ -8,7 +8,11 @@ terms = input("What would you like to search Amazon.ca for? ")
 
 
 def clean_input(unclean):
-    clean = unclean.replace(' ', '').split(",")
+    tmp = unclean.split(",")
+    clean = []
+    for i in tmp:
+        clean.append(i.strip())
+
     return clean
 
 
